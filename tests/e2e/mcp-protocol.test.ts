@@ -25,26 +25,16 @@
  * Tests the full server-client interaction via stdio transport.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { spawn, type ChildProcess } from 'child_process';
-import { resolve } from 'path';
-
-// Skip E2E tests if no API key is available (they require a real server)
-const hasApiKey = process.env['ZAI_API_KEY'] !== undefined;
-const describeE2E = hasApiKey ? describe : describe.skip;
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock fetch for E2E tests that don't need real API calls
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
-
 describe('MCP Protocol E2E', () => {
   describe('Server Startup', () => {
     it('should start without errors when API key is provided', async () => {
       // This test verifies the server can be imported and created
       const { createServer } = await import('../../src/server.js');
-      const { loadConfig, MODEL_CONFIGS } = await import('../../src/config.js');
 
       // Create a test config
       const testConfig = {
@@ -60,7 +50,6 @@ describe('MCP Protocol E2E', () => {
       const server = createServer(testConfig);
       expect(server).toBeDefined();
     });
-
     it('should fail without API key', async () => {
       const { loadConfig } = await import('../../src/config.js');
 
@@ -185,33 +174,5 @@ describe('MCP Protocol E2E', () => {
       expect(result).toContain('Failed');
       expect(result).toContain('Invalid prompt');
     });
-  });
-});
-
-describeE2E('Live MCP Server', () => {
-  let client: Client;
-  let serverProcess: ChildProcess;
-
-  beforeEach(async () => {
-    // These tests require a real API key and spawn the actual server
-  });
-
-  afterEach(async () => {
-    if (serverProcess) {
-      serverProcess.kill();
-    }
-    if (client) {
-      await client.close();
-    }
-  });
-
-  it('should connect and list tools', async () => {
-    // This would test real MCP protocol communication
-    // Skipping implementation as it requires spawning processes
-  });
-
-  it('should call list_models and get response', async () => {
-    // This would test real tool execution
-    // Skipping implementation as it requires spawning processes
   });
 });

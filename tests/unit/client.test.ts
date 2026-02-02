@@ -31,11 +31,8 @@ import {
   ZaiRateLimitError,
   ZaiValidationError,
   ZaiServerError,
-  ZaiNetworkError,
-  ZaiTimeoutError,
   ZaiConfigError,
 } from '../../src/client/errors.js';
-
 // Mock fetch globally
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -247,9 +244,7 @@ describe('createZaiClient', () => {
 
   describe('timeout handling', () => {
     it('should throw ZaiTimeoutError on abort', async () => {
-      const controller = new AbortController();
-
-      mockFetch.mockImplementation(async (url: string, options: { signal?: AbortSignal }) => {
+      mockFetch.mockImplementation(async (_url: string, options: { signal?: AbortSignal }) => {
         // Simulate abort
         setTimeout(() => options?.signal?.dispatchEvent?.(new Event('abort')), 10);
         await new Promise((_, reject) => {
@@ -260,7 +255,6 @@ describe('createZaiClient', () => {
           });
         });
       });
-
       const client = createZaiClient({ apiKey: 'test-key', maxRetries: 0, timeout: 5 });
 
       await expect(

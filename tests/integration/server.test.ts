@@ -66,10 +66,7 @@ describe('MCP Server Integration', () => {
 
   describe('tool execution', () => {
     describe('list_models', () => {
-      it('should return model list without API calls', async () => {
-        // Access the tool handler directly
-        const tools = (server as unknown as { _registeredTools: Map<string, unknown> })._registeredTools;
-
+      it('should return model list without API calls', () => {
         // The server should have tools registered
         expect(server).toBeDefined();
       });
