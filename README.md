@@ -6,6 +6,8 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 
 - **Synchronous Image Generation**: Generate images and get results immediately
 - **Asynchronous Image Generation**: Submit long-running tasks and poll for results
+- **Image Download**: Download generated images as base64 or save to file
+- **One-Command Generation**: Generate and download in a single operation
 - **Multiple Models**: Support for GLM-Image and CogView-4-250304 models
 - **Automatic Retries**: Built-in retry logic with exponential backoff
 - **Comprehensive Validation**: Input validation with clear error messages
@@ -209,6 +211,60 @@ Retrieve the result of an asynchronous image generation task.
 ```
 Check the status of task ID "task-12345".
 ```
+
+### 5. `download_image`
+
+Download an image from a URL and return it as base64 or save to a file.
+
+**Parameters:**
+- `url` (required): The URL of the image to download (e.g., from `generate_image` or `get_async_result`)
+- `output` (optional): `base64` or `file_output` (default: `base64`)
+- `file_output` (optional): Absolute path to save the image file (required if output is `file_output`). Example: `/path/to/image.png`
+
+**Output Modes:**
+- `base64`: Returns the image data directly as base64 (auto-switches to file if > 1MB)
+- `file_output`: Saves the image to disk at the specified path
+
+**Example:**
+```
+Download the generated image and save it to /home/user/images/logo.png
+```
+
+> **Note:** Z.AI image URLs expire after 30 days. Use this tool to download and store images permanently.
+
+### 6. `generate_and_download_image` ⭐ Recommended
+
+Generate an image and automatically download it in a single operation. This is the most convenient tool when you want the image data immediately.
+
+**Parameters:**
+- `prompt` (required): Text description of the image (max 4000 characters)
+- `model` (optional): `glm-image` or `cogview-4-250304` (default: `glm-image`)
+- `size` (optional): Image dimensions, e.g., `1280x1280` (default: `1280x1280`)
+- `quality` (optional): `hd` or `standard` (default: `hd` for GLM-Image)
+- `user_id` (optional): End user ID for abuse prevention (6-128 characters)
+- `output` (optional): `base64` or `file_output` (default: `base64`)
+- `file_output` (optional): Absolute path to save the image file (required if output is `file_output`)
+- `poll_interval` (optional): Seconds to wait between polling for async results (default: 3)
+- `max_wait` (optional): Maximum seconds to wait for generation (default: 120)
+
+**Output Modes:**
+- `base64`: Returns the image data directly as base64 (auto-switches to file if > 1MB)
+- `file_output`: Saves the image to disk at the specified path
+
+**Examples:**
+```
+# Generate and get as base64
+Generate a logo for my company and show me the image.
+
+# Generate and save to file
+Generate a logo and save it to /home/user/images/logo.png
+```
+
+**Behavior:**
+- For GLM-Image: Uses async API with automatic polling until complete
+- For CogView-4: Uses synchronous API
+- Automatically downloads the result once generation completes
+- Returns image as base64 or saves to specified path
 
 ## Models
 

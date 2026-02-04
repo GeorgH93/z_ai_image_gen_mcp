@@ -181,6 +181,30 @@ export function formatError(error: unknown): string {
 }
 
 /**
+ * Format a download response for MCP output.
+ */
+export function formatDownloadResponse(
+  filePath: string,
+  outputType: 'file' | 'base64'
+): string {
+  const lines: string[] = [];
+
+  if (outputType === 'file') {
+    lines.push(`# Image Downloaded Successfully`);
+    lines.push(``);
+    lines.push(`**Saved to:** file://${filePath}`);
+    lines.push(``);
+    lines.push(`> The image has been saved to disk and can be accessed at the path above.`);
+  } else {
+    lines.push(`# Image Downloaded Successfully`);
+    lines.push(``);
+    lines.push(`The image has been returned as base64 data.`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
  * Create a JSON-serializable result object for structured output.
  */
 export function createStructuredResult(

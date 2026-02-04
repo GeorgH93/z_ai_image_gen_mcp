@@ -28,6 +28,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { createZaiClient, type ZaiClient } from './client/index.js';
 import {
   loadConfig,
@@ -38,6 +40,7 @@ import {
 import {
   formatAsyncResultResponse,
   formatAsyncStartResponse,
+  formatDownloadResponse,
   formatError,
   formatImageResponse,
   formatModelList,
@@ -48,7 +51,6 @@ import {
   validateSize,
   validateUserId,
 } from './utils/validation.js';
-
 /**
  * Create and configure the MCP server.
  */
@@ -71,7 +73,15 @@ export function createServer(config: Config): McpServer {
   registerGenerateImageTool(server, client, config);
   registerGenerateImageAsyncTool(server, client, config);
   registerGetAsyncResultTool(server, client);
+  registerDownloadImageTool(server);
+  registerGenerateAndDownloadTool(server, client, config);
 
+  return server;
+  registerListModelsTool(server);
+  registerGenerateImageTool(server, client, config);
+  registerGenerateImageAsyncTool(server, client, config);
+  registerGetAsyncResultTool(server, client);
+  registerDownloadImageTool(server);
   return server;
 }
 
@@ -273,6 +283,321 @@ function registerGetAsyncResultTool(server: McpServer, client: ZaiClient): void 
     }
   );
 }
+
+/**
+ * Register the download_image tool.
+ */
+function registerDownloadImageTool(server: McpServer): void {
+  server.tool(
+    'download_image',
+    'Download an image from a URL and return it as base64 or save to a file. Use this after generating an image to get the actual image data. Note: Z.AI image URLs expire after 30 days.',
+    {
+      url: z
+        .string()
+        .url()
+        .describe('The URL of the image to download (e.g., from generate_image or get_async_result)'),
+      output: z
+        .enum(['base64', 'file_output'])
+        .optional()
+        .default('base64')
+        .describe('Output format: "base64" returns the image data directly, "file_output" saves to disk'),
+      file_output: z
+        .string()
+        .optional()
+        .describe('Absolute path to save the image file (required if output is "file_output"). Example: /path/to/image.png'),
+    },
+    async (params) => {
+      try {
+        const { url, output = 'base64', file_output } = params;
+
+        // Fetch the image
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to download image: HTTP ${response.status}`);
+        }
+
+        // Get content type for mime type detection
+        const contentType = response.headers.get('content-type') ?? 'image/png';
+        const buffer = Buffer.from(await response.arrayBuffer());
+        const base64 = buffer.toString('base64');
+
+        // Determine extension from content type
+        const extMap: Record<string, string> = {
+          'image/png': 'png',
+          'image/jpeg': 'jpg',
+          'image/jpg': 'jpg',
+          'image/webp': 'webp',
+          'image/gif': 'gif',
+        };
+        const ext = extMap[contentType] ?? 'png';
+
+        // Auto-switch to file_output if base64 exceeds 1MB (MCP limit)
+        const MAX_RESPONSE_SIZE = 1048576; // 1MB
+        const effectiveOutput = output === 'base64' && buffer.length > MAX_RESPONSE_SIZE
+          ? 'file_output'
+          : output;
+
+        if (effectiveOutput === 'file_output') {
+          // Determine file path
+          let filePath: string;
+          if (file_output) {
+            // Use provided path, ensure correct extension
+            const parsed = path.parse(file_output);
+            filePath = path.join(parsed.dir, `${parsed.name}.${ext}`);
+          } else {
+            // Auto-generate path in temp directory
+            const tmpDir = process.env.MCP_HF_WORK_DIR ?? '/tmp';
+            const unique = Date.now();
+            filePath = path.join(tmpDir, `zai_image_${unique}.${ext}`);
+          }
+
+          // Ensure directory exists
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+
+          // Write file
+          await fs.writeFile(filePath, buffer);
+
+          return {
+            content: [{ type: 'text' as const, text: formatDownloadResponse(filePath, 'file') }],
+          };
+        } else {
+          // Return base64
+          return {
+            content: [{
+              type: 'image' as const,
+              data: base64,
+              mimeType: contentType,
+            }],
+          };
+        }
+      } catch (error) {
+        return {
+          content: [{ type: 'text' as const, text: formatError(error) }],
+          isError: true,
+        };
+      }
+    }
+  );
+}
+
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Register the generate_and_download_image tool.
+ * Combines image generation and download into a single operation.
+ */
+function registerGenerateAndDownloadTool(
+  server: McpServer,
+  client: ZaiClient,
+  config: Config
+): void {
+  server.tool(
+    'generate_and_download_image',
+    'Generate an image and automatically download it. This combines generate_image and download_image into a single operation. Returns the image as base64 or saves to a file. Best for when you want the image data immediately.',
+    {
+      prompt: z
+        .string()
+        .min(1)
+        .max(4000)
+        .describe('Text description of the image to generate'),
+      model: z
+        .enum(['glm-image', 'cogview-4-250304'])
+        .optional()
+        .default(config.defaultModel)
+        .describe('Model to use for generation'),
+      size: z
+        .string()
+        .optional()
+        .default(config.defaultSize)
+        .describe('Image size (e.g., "1280x1280", "1568x1056")'),
+      quality: z
+        .enum(['hd', 'standard'])
+        .optional()
+        .describe('Quality level: "hd" (more detailed, ~20s) or "standard" (faster, ~5-10s)'),
+      user_id: z
+        .string()
+        .min(6)
+        .max(128)
+        .optional()
+        .describe('Unique end user ID for abuse prevention (6-128 characters)'),
+      output: z
+        .enum(['base64', 'file_output'])
+        .optional()
+        .default('base64')
+        .describe('Output format: "base64" returns the image data directly, "file_output" saves to disk'),
+      file_output: z
+        .string()
+        .optional()
+        .describe('Absolute path to save the image file (required if output is "file_output"). Example: /path/to/image.png'),
+      poll_interval: z
+        .number()
+        .int()
+        .min(1)
+        .max(30)
+        .optional()
+        .default(3)
+        .describe('Seconds to wait between polling for async results (default: 3)'),
+      max_wait: z
+        .number()
+        .int()
+        .min(10)
+        .max(300)
+        .optional()
+        .default(120)
+        .describe('Maximum seconds to wait for image generation (default: 120)'),
+    },
+    async (params) => {
+      try {
+        const {
+          prompt,
+          model = config.defaultModel,
+          size = config.defaultSize,
+          quality,
+          user_id,
+          output = 'base64',
+          file_output,
+          poll_interval = 3,
+          max_wait = 120,
+        } = params;
+
+        const modelConfig = MODEL_CONFIGS[model];
+
+        // Validate inputs
+        validatePrompt(prompt);
+        validateSize(size, model);
+        if (quality) {
+          validateQuality(quality, model);
+        }
+        if (user_id) {
+          validateUserId(user_id);
+        }
+
+        let imageUrl: string | undefined;
+
+        // Generate the image
+        if (modelConfig.supportsAsync) {
+          // Use async API with polling
+          const asyncResponse = await client.generateImageAsync({
+            model: 'glm-image',
+            prompt,
+            size,
+            quality: 'hd',
+            ...(user_id ? { user_id } : {}),
+          });
+
+          const taskId = asyncResponse.id;
+          const startTime = Date.now();
+          const maxWaitMs = max_wait * 1000;
+
+          // Poll until complete or timeout
+          while (Date.now() - startTime < maxWaitMs) {
+            const result = await client.getAsyncResult(taskId);
+
+            if (result.task_status === 'SUCCESS' && result.image_result?.[0]?.url) {
+              imageUrl = result.image_result[0].url;
+              break;
+            } else if (result.task_status === 'FAIL') {
+              throw new Error(
+                `Image generation failed: ${result.error?.message ?? 'Unknown error'}`
+              );
+            }
+
+            // Still processing, wait and retry
+            await sleep(poll_interval * 1000);
+          }
+
+          if (!imageUrl) {
+            throw new Error(`Image generation timed out after ${max_wait} seconds`);
+          }
+        } else {
+          // Use synchronous API
+          const response = await client.generateImage({
+            model,
+            prompt,
+            size,
+            quality: quality ?? modelConfig.defaultQuality,
+            ...(user_id ? { user_id } : {}),
+          });
+
+          imageUrl = response.data[0]?.url;
+          if (!imageUrl) {
+            throw new Error('No image URL returned from generation');
+          }
+        }
+
+        // Download the image
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to download image: HTTP ${imageResponse.status}`);
+        }
+
+        const contentType = imageResponse.headers.get('content-type') ?? 'image/png';
+        const buffer = Buffer.from(await imageResponse.arrayBuffer());
+        const base64 = buffer.toString('base64');
+
+        // Determine extension from content type
+        const extMap: Record<string, string> = {
+          'image/png': 'png',
+          'image/jpeg': 'jpg',
+          'image/jpg': 'jpg',
+          'image/webp': 'webp',
+          'image/gif': 'gif',
+        };
+        const ext = extMap[contentType] ?? 'png';
+
+        // Auto-switch to file_output if base64 exceeds 1MB (MCP limit)
+        const MAX_RESPONSE_SIZE = 1048576; // 1MB
+        const effectiveOutput = output === 'base64' && buffer.length > MAX_RESPONSE_SIZE
+          ? 'file_output'
+          : output;
+
+        if (effectiveOutput === 'file_output') {
+          // Determine file path
+          let filePath: string;
+          if (file_output) {
+            const parsed = path.parse(file_output);
+            filePath = path.join(parsed.dir, `${parsed.name}.${ext}`);
+          } else {
+            const tmpDir = process.env.MCP_HF_WORK_DIR ?? '/tmp';
+            const unique = Date.now();
+            filePath = path.join(tmpDir, `zai_image_${unique}.${ext}`);
+          }
+
+          // Ensure directory exists
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+
+          // Write file
+          await fs.writeFile(filePath, buffer);
+
+          return {
+            content: [{ type: 'text' as const, text: formatDownloadResponse(filePath, 'file') }],
+          };
+        } else {
+          // Return base64
+          return {
+            content: [{
+              type: 'image' as const,
+              data: base64,
+              mimeType: contentType,
+            }],
+          };
+        }
+      } catch (error) {
+        return {
+          content: [{ type: 'text' as const, text: formatError(error) }],
+          isError: true,
+        };
+      }
+    }
+  );
+}
+
 
 /**
  * Start the MCP server with stdio transport.
