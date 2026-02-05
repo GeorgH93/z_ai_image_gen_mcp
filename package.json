@@ -30,6 +30,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postinstall": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
@@ -44,6 +45,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
+    "typescript": "^5.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -52,7 +54,6 @@
     "dotenv": "^16.4.5",
     "eslint": "^10.0.2",
     "tsx": "^4.15.0",
-    "typescript": "^5.4.5",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   },
@@ -61,6 +62,7 @@
   },
   "files": [
     "dist",
+    "src",
     "README.md",
     "LICENSE"
   ]

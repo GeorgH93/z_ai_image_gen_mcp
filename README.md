@@ -16,7 +16,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 ## Installation
 
 ```bash
-npm install z-ai-image-mcp
+npm install GeorgH93/z_ai_image_gen_mcp
 ```
 
 ## Configuration
