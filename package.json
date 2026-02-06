@@ -45,12 +45,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
+    "@types/node": "^20.14.0",
     "typescript": "^5.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^20.14.0",
     "dotenv": "^16.4.5",
     "eslint": "^10.0.2",
     "tsx": "^4.15.0",
@@ -63,6 +63,7 @@
   "files": [
     "dist",
     "src",
+    "tsconfig.json",
     "README.md",
     "LICENSE"
   ]
