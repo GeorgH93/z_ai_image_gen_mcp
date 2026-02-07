@@ -20,16 +20,19 @@
  * SOFTWARE.
  */
 
-
 /**
  * Configuration management for the Z.AI Image MCP Server.
  * Loads configuration from environment variables with sensible defaults.
  */
 
-import { config } from 'dotenv';
-
-// Load .env file if present (for development)
-config();
+// Load .env file if present (for development only)
+// dotenv is optional - only needed when using .env files
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('dotenv').config();
+} catch {
+  // dotenv not available, skip .env loading (production)
+}
 
 export interface Config {
   /** Z.AI API key (required) */
