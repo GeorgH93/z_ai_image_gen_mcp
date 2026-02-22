@@ -34,8 +34,10 @@ import { createZaiClient, type ZaiClient } from './client/index.js';
 import {
   loadConfig,
   MODEL_CONFIGS,
+  VIDEO_MODEL_CONFIGS,
   type Config,
   type SupportedModel,
+  type VideoSupportedModel,
 } from './config.js';
 import {
   formatAsyncResultResponse,
@@ -44,12 +46,25 @@ import {
   formatError,
   formatImageResponse,
   formatModelList,
+  formatVideoDownloadResponse,
+  formatVideoModelList,
+  formatVideoResultResponse,
+  formatVideoStartResponse,
 } from './utils/formatters.js';
 import {
   validatePrompt,
   validateQuality,
   validateSize,
   validateUserId,
+  validateVideoPrompt,
+  validateVideoDuration,
+  validateVideoResolution,
+  validateVideoImageUrl,
+  validateMovementAmplitude,
+  validateVideoStyle,
+  validateVideoFps,
+  validateVideoQuality,
+  validateVideoAspectRatio,
 } from './utils/validation.js';
 /**
  * Create and configure the MCP server.
@@ -64,11 +79,11 @@ export function createServer(config: Config): McpServer {
   });
 
   const server = new McpServer({
-    name: 'z-ai-image-mcp',
+    name: 'z-ai-image-video-mcp',
     version: '1.0.0',
   });
 
-  // Register tools
+  // Register image tools
   registerListModelsTool(server);
   registerGenerateImageTool(server, client, config);
   registerGenerateImageAsyncTool(server, client, config);
@@ -76,12 +91,12 @@ export function createServer(config: Config): McpServer {
   registerDownloadImageTool(server);
   registerGenerateAndDownloadTool(server, client, config);
 
-  return server;
-  registerListModelsTool(server);
-  registerGenerateImageTool(server, client, config);
-  registerGenerateImageAsyncTool(server, client, config);
-  registerGetAsyncResultTool(server, client);
-  registerDownloadImageTool(server);
+  // Register video tools
+  registerListVideoModelsTool(server);
+  registerGenerateVideoTool(server, client);
+  registerGetVideoResultTool(server, client);
+  registerGenerateAndDownloadVideoTool(server, client);
+
   return server;
 }
 
@@ -598,6 +613,435 @@ function registerGenerateAndDownloadTool(
   );
 }
 
+// ============================================
+// Video Tool Registration Functions
+// ============================================
+
+/**
+ * Register the list_video_models tool.
+ */
+function registerListVideoModelsTool(server: McpServer): void {
+  server.tool(
+    'list_video_models',
+    'List available Z.AI video generation models and their capabilities',
+    {},
+    async () => {
+      const result = formatVideoModelList();
+      return {
+        content: [{ type: 'text' as const, text: result }],
+      };
+    }
+  );
+}
+
+/**
+ * Register the generate_video tool.
+ */
+function registerGenerateVideoTool(server: McpServer, client: ZaiClient): void {
+  server.tool(
+    'generate_video',
+    'Generate a video asynchronously from text or images. Returns a task ID to poll for results. Supports multiple models: CogVideoX-3 (text/image/start-end frame), Vidu Q1 (1080P), Vidu 2 (720P, faster).',
+    {
+      model: z
+        .enum(['cogvideox-3', 'viduq1-text', 'viduq1-image', 'viduq1-start-end', 'vidu2-image', 'vidu2-start-end', 'vidu2-reference'])
+        .describe('Video generation model to use'),
+      prompt: z
+        .string()
+        .max(512)
+        .optional()
+        .describe('Text description of the video (max 512 characters). Required for text-to-video models.'),
+      image_url: z
+        .union([z.string().url(), z.array(z.string().url())])
+        .optional()
+        .describe('Image URL(s) for image-to-video generation. Single URL or array of URLs for start-end frame/reference images.'),
+      quality: z
+        .enum(['quality', 'speed'])
+        .optional()
+        .describe('CogVideoX-3 only: "quality" for higher quality, "speed" for faster generation'),
+      size: z
+        .string()
+        .optional()
+        .describe('Video resolution (e.g., "1920x1080", "1280x720"). Model-specific defaults apply.'),
+      duration: z
+        .union([z.literal(4), z.literal(5), z.literal(10)])
+        .optional()
+        .describe('Video duration in seconds. Model-specific: CogVideoX-3: 5 or 10, Vidu Q1: 5, Vidu 2: 4'),
+      fps: z
+        .union([z.literal(30), z.literal(60)])
+        .optional()
+        .describe('CogVideoX-3 only: Frame rate (30 or 60)'),
+      with_audio: z
+        .boolean()
+        .optional()
+        .describe('Whether to generate AI sound effects (CogVideoX-3, Vidu 2)'),
+      style: z
+        .enum(['general', 'anime'])
+        .optional()
+        .describe('Vidu Q1 text-to-video only: Style of the video'),
+      aspect_ratio: z
+        .enum(['16:9', '9:16', '1:1'])
+        .optional()
+        .describe('Vidu Q1 text/reference only: Aspect ratio'),
+      movement_amplitude: z
+        .enum(['auto', 'small', 'medium', 'large'])
+        .optional()
+        .describe('Vidu models only: Motion amplitude'),
+      user_id: z
+        .string()
+        .min(6)
+        .max(128)
+        .optional()
+        .describe('Unique end user ID for abuse prevention (6-128 characters)'),
+    },
+    async (params) => {
+      try {
+        const model = params.model as VideoSupportedModel;
+        const modelConfig = VIDEO_MODEL_CONFIGS[model];
+
+        // Validate prompt if provided
+        if (params.prompt) {
+          validateVideoPrompt(params.prompt, model);
+        }
+
+        // Validate image_url if provided
+        if (params.image_url) {
+          validateVideoImageUrl(params.image_url, model);
+        }
+
+        // Validate duration if provided
+        if (params.duration) {
+          validateVideoDuration(params.duration, model);
+        }
+
+        // Validate resolution if provided
+        if (params.size) {
+          validateVideoResolution(params.size, model);
+        }
+
+        // Validate user_id if provided
+        if (params.user_id) {
+          validateUserId(params.user_id);
+        }
+
+        // Validate model-specific parameters
+        if (params.quality && model === 'cogvideox-3') {
+          validateVideoQuality(params.quality);
+        }
+        if (params.fps && modelConfig.supportsFps) {
+          validateVideoFps(params.fps);
+        }
+        if (params.style && modelConfig.supportsStyle) {
+          validateVideoStyle(params.style);
+        }
+        if (params.movement_amplitude && modelConfig.supportsMovementAmplitude) {
+          validateMovementAmplitude(params.movement_amplitude);
+        }
+        if (params.aspect_ratio && modelConfig.aspectRatios) {
+          validateVideoAspectRatio(params.aspect_ratio, model);
+        }
+
+        // Build request object based on model type
+        const request: Record<string, unknown> = { model };
+
+        if (params.prompt) request.prompt = params.prompt;
+        if (params.image_url) request.image_url = params.image_url;
+        if (params.size) request.size = params.size;
+        if (params.duration) request.duration = params.duration;
+        if (params.user_id) request.user_id = params.user_id;
+
+        // CogVideoX-3 specific
+        if (model === 'cogvideox-3') {
+          if (params.quality) request.quality = params.quality;
+          if (params.fps) request.fps = params.fps;
+          if (params.with_audio !== undefined) request.with_audio = params.with_audio;
+        }
+
+        // Vidu specific
+        if (model.startsWith('vidu')) {
+          if (params.movement_amplitude) request.movement_amplitude = params.movement_amplitude;
+          if (params.with_audio !== undefined && (model.startsWith('vidu2') || model === 'viduq1-start-end')) {
+            request.with_audio = params.with_audio;
+          }
+        }
+
+        // Vidu Q1 text specific
+        if (model === 'viduq1-text') {
+          if (params.style) request.style = params.style;
+          if (params.aspect_ratio) request.aspect_ratio = params.aspect_ratio;
+        }
+
+        // Vidu 2 reference specific
+        if (model === 'vidu2-reference') {
+          if (params.aspect_ratio) request.aspect_ratio = params.aspect_ratio;
+        }
+
+        const response = await client.generateVideo(request as never);
+        const result = formatVideoStartResponse(response);
+        return {
+          content: [{ type: 'text' as const, text: result }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: 'text' as const, text: formatError(error) }],
+          isError: true,
+        };
+      }
+    }
+  );
+}
+
+/**
+ * Register the get_video_result tool.
+ */
+function registerGetVideoResultTool(server: McpServer, client: ZaiClient): void {
+  server.tool(
+    'get_video_result',
+    'Retrieve the result of an asynchronous video generation task. Use the task ID from generate_video.',
+    {
+      task_id: z
+        .string()
+        .min(1, 'task_id is required')
+        .describe('The task ID returned by generate_video'),
+    },
+    async (params) => {
+      try {
+        const response = await client.getVideoResult(params.task_id);
+        const result = formatVideoResultResponse(response);
+        return {
+          content: [{ type: 'text' as const, text: result }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: 'text' as const, text: formatError(error) }],
+          isError: true,
+        };
+      }
+    }
+  );
+}
+
+/**
+ * Register the generate_and_download_video tool.
+ */
+function registerGenerateAndDownloadVideoTool(server: McpServer, client: ZaiClient): void {
+  server.tool(
+    'generate_and_download_video',
+    'Generate a video and automatically download it. Polls for completion and returns the video file. Best for when you want the video data immediately.',
+    {
+      model: z
+        .enum(['cogvideox-3', 'viduq1-text', 'viduq1-image', 'viduq1-start-end', 'vidu2-image', 'vidu2-start-end', 'vidu2-reference'])
+        .describe('Video generation model to use'),
+      prompt: z
+        .string()
+        .max(512)
+        .optional()
+        .describe('Text description of the video (max 512 characters)'),
+      image_url: z
+        .union([z.string().url(), z.array(z.string().url())])
+        .optional()
+        .describe('Image URL(s) for image-to-video generation'),
+      quality: z
+        .enum(['quality', 'speed'])
+        .optional()
+        .describe('CogVideoX-3 only: output mode'),
+      size: z
+        .string()
+        .optional()
+        .describe('Video resolution'),
+      duration: z
+        .union([z.literal(4), z.literal(5), z.literal(10)])
+        .optional()
+        .describe('Video duration in seconds'),
+      fps: z
+        .union([z.literal(30), z.literal(60)])
+        .optional()
+        .describe('CogVideoX-3 only: Frame rate'),
+      with_audio: z
+        .boolean()
+        .optional()
+        .describe('Whether to generate AI sound effects'),
+      style: z
+        .enum(['general', 'anime'])
+        .optional()
+        .describe('Vidu Q1 text-to-video only: Style'),
+      aspect_ratio: z
+        .enum(['16:9', '9:16', '1:1'])
+        .optional()
+        .describe('Aspect ratio'),
+      movement_amplitude: z
+        .enum(['auto', 'small', 'medium', 'large'])
+        .optional()
+        .describe('Vidu models only: Motion amplitude'),
+      user_id: z
+        .string()
+        .min(6)
+        .max(128)
+        .optional()
+        .describe('Unique end user ID'),
+      file_output: z
+        .string()
+        .optional()
+        .describe('Absolute path to save the video file. Example: /path/to/video.mp4'),
+      poll_interval: z
+        .number()
+        .int()
+        .min(5)
+        .max(60)
+        .optional()
+        .default(10)
+        .describe('Seconds to wait between polling (default: 10, videos take longer than images)'),
+      max_wait: z
+        .number()
+        .int()
+        .min(60)
+        .max(600)
+        .optional()
+        .default(300)
+        .describe('Maximum seconds to wait for video generation (default: 300)'),
+    },
+    async (params) => {
+      try {
+        const model = params.model as VideoSupportedModel;
+        const modelConfig = VIDEO_MODEL_CONFIGS[model];
+        const {
+          file_output,
+          poll_interval = 10,
+          max_wait = 300,
+        } = params;
+
+        // Validate inputs
+        if (params.prompt) {
+          validateVideoPrompt(params.prompt, model);
+        }
+        if (params.image_url) {
+          validateVideoImageUrl(params.image_url, model);
+        }
+        if (params.duration) {
+          validateVideoDuration(params.duration, model);
+        }
+        if (params.size) {
+          validateVideoResolution(params.size, model);
+        }
+        if (params.user_id) {
+          validateUserId(params.user_id);
+        }
+        if (params.quality && model === 'cogvideox-3') {
+          validateVideoQuality(params.quality);
+        }
+        if (params.fps && modelConfig.supportsFps) {
+          validateVideoFps(params.fps);
+        }
+        if (params.style && modelConfig.supportsStyle) {
+          validateVideoStyle(params.style);
+        }
+        if (params.movement_amplitude && modelConfig.supportsMovementAmplitude) {
+          validateMovementAmplitude(params.movement_amplitude);
+        }
+        if (params.aspect_ratio && modelConfig.aspectRatios) {
+          validateVideoAspectRatio(params.aspect_ratio, model);
+        }
+
+        // Build request
+        const request: Record<string, unknown> = { model };
+        if (params.prompt) request.prompt = params.prompt;
+        if (params.image_url) request.image_url = params.image_url;
+        if (params.size) request.size = params.size;
+        if (params.duration) request.duration = params.duration;
+        if (params.user_id) request.user_id = params.user_id;
+
+        if (model === 'cogvideox-3') {
+          if (params.quality) request.quality = params.quality;
+          if (params.fps) request.fps = params.fps;
+          if (params.with_audio !== undefined) request.with_audio = params.with_audio;
+        }
+
+        if (model.startsWith('vidu')) {
+          if (params.movement_amplitude) request.movement_amplitude = params.movement_amplitude;
+          if (params.with_audio !== undefined && model.startsWith('vidu2')) {
+            request.with_audio = params.with_audio;
+          }
+        }
+
+        if (model === 'viduq1-text') {
+          if (params.style) request.style = params.style;
+          if (params.aspect_ratio) request.aspect_ratio = params.aspect_ratio;
+        }
+
+        if (model === 'vidu2-reference') {
+          if (params.aspect_ratio) request.aspect_ratio = params.aspect_ratio;
+        }
+
+        // Start video generation
+        const asyncResponse = await client.generateVideo(request as never);
+        const taskId = asyncResponse.id;
+        const startTime = Date.now();
+        const maxWaitMs = max_wait * 1000;
+
+        let videoUrl: string | undefined;
+
+        // Poll until complete or timeout
+        while (Date.now() - startTime < maxWaitMs) {
+          const result = await client.getVideoResult(taskId);
+
+          if (result.task_status === 'SUCCESS' && result.video_result?.[0]?.url) {
+            videoUrl = result.video_result[0].url;
+            break;
+          } else if (result.task_status === 'FAIL') {
+            throw new Error(
+              `Video generation failed: ${result.error?.message ?? 'Unknown error'}`
+            );
+          }
+
+          await sleep(poll_interval * 1000);
+        }
+
+        if (!videoUrl) {
+          throw new Error(`Video generation timed out after ${max_wait} seconds`);
+        }
+
+        // Download the video
+        const videoResponse = await fetch(videoUrl);
+        if (!videoResponse.ok) {
+          throw new Error(`Failed to download video: HTTP ${videoResponse.status}`);
+        }
+
+        const contentType = videoResponse.headers.get('content-type') ?? 'video/mp4';
+        const buffer = Buffer.from(await videoResponse.arrayBuffer());
+
+        // Determine extension
+        const extMap: Record<string, string> = {
+          'video/mp4': 'mp4',
+          'video/webm': 'webm',
+          'video/quicktime': 'mov',
+        };
+        const ext = extMap[contentType] ?? 'mp4';
+
+        // Always use file_output for videos (too large for base64)
+        let filePath: string;
+        if (file_output) {
+          const parsed = path.parse(file_output);
+          filePath = path.join(parsed.dir, `${parsed.name}.${ext}`);
+        } else {
+          const tmpDir = process.env.MCP_HF_WORK_DIR ?? '/tmp';
+          const unique = Date.now();
+          filePath = path.join(tmpDir, `zai_video_${unique}.${ext}`);
+        }
+
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, buffer);
+
+        return {
+          content: [{ type: 'text' as const, text: formatVideoDownloadResponse(filePath, 'file') }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: 'text' as const, text: formatError(error) }],
+          isError: true,
+        };
+      }
+    }
+  );
+}
 
 /**
  * Start the MCP server with stdio transport.
@@ -610,7 +1054,7 @@ export async function startServer(config?: Config): Promise<void> {
   await server.connect(transport);
 
   // Log to stderr (stdout is used for MCP protocol)
-  console.error('Z.AI Image MCP Server started');
+  console.error('Z.AI Image & Video MCP Server started');
 }
 
-export { loadConfig, type Config, type SupportedModel };
+export { loadConfig, type Config, type SupportedModel, type VideoSupportedModel };

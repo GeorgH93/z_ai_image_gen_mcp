@@ -1,14 +1,14 @@
-# Z.AI Image Generation MCP Server
+# Z.AI Image & Video Generation MCP Server
 
-A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that provides access to Z.AI's image generation models (GLM-Image and CogView-4) for LLM applications.
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that provides access to Z.AI's image and video generation models for LLM applications.
 
 ## Features
 
-- **Synchronous Image Generation**: Generate images and get results immediately
-- **Asynchronous Image Generation**: Submit long-running tasks and poll for results
-- **Image Download**: Download generated images as base64 or save to file
-- **One-Command Generation**: Generate and download in a single operation
-- **Multiple Models**: Support for GLM-Image and CogView-4-250304 models
+- **Image Generation**: GLM-Image and CogView-4 models for high-quality image generation
+- **Video Generation**: CogVideoX-3, Vidu Q1, and Vidu 2 models for AI video creation
+- **Multiple Input Modes**: Text-to-image/video, image-to-video, start-end frame animation
+- **Asynchronous Processing**: Submit long-running tasks and poll for results
+- **Automatic Downloads**: Generate and download in a single operation
 - **Automatic Retries**: Built-in retry logic with exponential backoff
 - **Comprehensive Validation**: Input validation with clear error messages
 - **Type-Safe**: Full TypeScript support with detailed type definitions
@@ -266,6 +266,81 @@ Generate a logo and save it to /home/user/images/logo.png
 - Automatically downloads the result once generation completes
 - Returns image as base64 or saves to specified path
 
+---
+
+## Video Generation Tools
+
+### 7. `list_video_models`
+
+List all available video generation models and their capabilities.
+
+```
+Use this tool to discover available video models, their features, and supported parameters.
+```
+
+### 8. `generate_video`
+
+Generate a video asynchronously from text or images. Returns a task ID for polling.
+
+**Parameters:**
+- `model` (required): Video generation model
+  - `cogvideox-3`: Z.AI flagship model (up to 4K, 5-10s, audio support)
+  - `viduq1-text`: Text-to-video, 1080P, 5s
+  - `viduq1-image`: Image-to-video, 1080P, 5s
+  - `viduq1-start-end`: Start-end frame, 1080P, 5s
+  - `vidu2-image`: Image-to-video, 720P, 4s (faster, cheaper)
+  - `vidu2-start-end`: Start-end frame, 720P, 4s
+  - `vidu2-reference`: Reference-based, 720P, 4s
+- `prompt` (optional): Text description (max 512 characters)
+- `image_url` (optional): Image URL(s) for image-to-video generation
+- `quality` (CogVideoX-3): `quality` or `speed`
+- `size` (optional): Video resolution
+- `duration` (optional): Video duration in seconds
+- `fps` (CogVideoX-3): 30 or 60
+- `with_audio` (optional): Generate AI sound effects
+- `style` (Vidu Q1 text): `general` or `anime`
+- `aspect_ratio` (Vidu Q1/2): `16:9`, `9:16`, or `1:1`
+- `movement_amplitude` (Vidu): `auto`, `small`, `medium`, or `large`
+- `user_id` (optional): End user ID for abuse prevention
+
+**Examples:**
+```
+# Text-to-video
+Generate a video of a cat playing with a ball.
+
+# Image-to-video
+Animate this image: [image_url]
+
+# Start-end frame
+Create a smooth transition from [first_frame] to [last_frame].
+```
+
+### 9. `get_video_result`
+
+Retrieve the result of an asynchronous video generation task.
+
+**Parameters:**
+- `task_id` (required): The task ID from `generate_video`
+
+> **Note:** Video generation typically takes 30 seconds to several minutes depending on duration and quality.
+
+### 10. `generate_and_download_video` ⭐ Recommended
+
+Generate a video and automatically download it. Polls for completion and saves the video file.
+
+**Parameters:**
+- All parameters from `generate_video` plus:
+- `file_output` (optional): Absolute path to save the video file
+- `poll_interval` (optional): Seconds to wait between polling (default: 10)
+- `max_wait` (optional): Maximum seconds to wait (default: 300)
+
+**Example:**
+```
+Generate a video of a sunset over the ocean and save it to /home/user/videos/sunset.mp4
+```
+
+> **Note:** Videos are always saved to file (too large for base64). Video URLs expire after 1 day.
+
 ## Models
 
 ### GLM-Image
@@ -287,6 +362,44 @@ General-purpose image generation with fast text understanding.
 - **Size range**: 512-2048px per dimension (divisible by 16)
 - **Recommended sizes**: 1024×1024, 768×1344, 864×1152, 1344×768, 1152×864, 1440×720, 720×1440
 - **Async support**: No
+
+---
+
+## Video Models
+
+### CogVideoX-3
+
+Z.AI's flagship video generation model with improved frame stability and clarity.
+
+- **Best for**: Text-to-video, image-to-video, start-end frame animation
+- **Resolution**: Up to 4K (3840x2160)
+- **Duration**: 5 or 10 seconds
+- **Features**: Audio generation, 30/60 FPS, quality/speed modes
+- **Price**: $0.20/video
+
+### Vidu Q1
+
+High-quality video generation with 1080P output.
+
+| Model | Capability | Duration | Price |
+|-------|------------|----------|-------|
+| `viduq1-text` | Text-to-video | 5s | $0.40 |
+| `viduq1-image` | Image-to-video | 5s | $0.40 |
+| `viduq1-start-end` | Start-end frame | 5s | $0.40 |
+
+- **Features**: General/anime styles, motion amplitude control
+
+### Vidu 2
+
+Fast and cost-effective video generation with 720P output.
+
+| Model | Capability | Duration | Price |
+|-------|------------|----------|-------|
+| `vidu2-image` | Image-to-video | 4s | $0.20 |
+| `vidu2-start-end` | Start-end frame | 4s | $0.20 |
+| `vidu2-reference` | Reference-based | 4s | $0.40 |
+
+- **Features**: Audio generation, motion amplitude control, multi-image reference
 
 ## Error Handling
 

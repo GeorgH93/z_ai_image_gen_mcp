@@ -28,9 +28,12 @@ import type {
   AsyncCreateImageRequest,
   AsyncImageGenerationResponse,
   AsyncResponse,
+  AsyncVideoGenerationResponse,
   ClientOptions,
   CreateImageRequest,
+  CreateVideoRequest,
   ImageGenerationResponse,
+  VideoResponse,
   ZaiClient,
 } from './types.js';
 import {
@@ -206,10 +209,33 @@ export function createZaiClient(options: ClientOptions): ZaiClient {
     },
 
     /**
-     * Get the result of an async task.
+     * Get the result of an async image task.
      */
     async getAsyncResult(taskId: string): Promise<AsyncImageGenerationResponse> {
       return request<AsyncImageGenerationResponse>(
+        'GET',
+        `/paas/v4/async-result/${taskId}`
+      );
+    },
+
+    /**
+     * Start an async video generation task.
+     */
+    async generateVideo(
+      req: CreateVideoRequest
+    ): Promise<VideoResponse> {
+      return request<VideoResponse>(
+        'POST',
+        '/paas/v4/videos/generations',
+        req
+      );
+    },
+
+    /**
+     * Get the result of an async video task.
+     */
+    async getVideoResult(taskId: string): Promise<AsyncVideoGenerationResponse> {
+      return request<AsyncVideoGenerationResponse>(
         'GET',
         `/paas/v4/async-result/${taskId}`
       );

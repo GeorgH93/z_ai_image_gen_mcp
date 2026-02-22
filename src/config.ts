@@ -167,3 +167,147 @@ export const MODEL_CONFIGS: Record<SupportedModel, {
     supportedQualities: ['hd', 'standard'],
   },
 };
+
+// ============================================
+// Video Model Configuration
+// ============================================
+
+/**
+ * Video generation model codes.
+ */
+export const VIDEO_SUPPORTED_MODELS = [
+  'cogvideox-3',
+  'viduq1-text',
+  'viduq1-image',
+  'viduq1-start-end',
+  'vidu2-image',
+  'vidu2-start-end',
+  'vidu2-reference',
+] as const;
+export type VideoSupportedModel = typeof VIDEO_SUPPORTED_MODELS[number];
+
+/**
+ * Video model categories for easier selection.
+ */
+export const VIDEO_MODEL_CATEGORIES = {
+  textToVideo: ['viduq1-text'] as const,
+  imageToVideo: ['cogvideox-3', 'viduq1-image', 'vidu2-image'] as const,
+  startEndFrame: ['cogvideox-3', 'viduq1-start-end', 'vidu2-start-end'] as const,
+  reference: ['vidu2-reference'] as const,
+};
+
+export function isVideoSupportedModel(model: string): model is VideoSupportedModel {
+  return VIDEO_SUPPORTED_MODELS.includes(model as VideoSupportedModel);
+}
+
+/**
+ * Video model capabilities and constraints.
+ */
+export const VIDEO_MODEL_CONFIGS: Record<VideoSupportedModel, {
+  displayName: string;
+  description: string;
+  category: 'text-to-video' | 'image-to-video' | 'start-end-frame' | 'reference';
+  duration: number[];
+  resolutions: string[];
+  aspectRatios?: string[];
+  supportsAudio: boolean;
+  supportsFps: boolean;
+  supportsStyle: boolean;
+  supportsMovementAmplitude: boolean;
+  maxPromptLength: number;
+  priceUsd: number;
+}> = {
+  'cogvideox-3': {
+    displayName: 'CogVideoX-3',
+    description: 'Z.AI flagship video generation model with improved frame stability and clarity. Supports text-to-video, image-to-video, and start-end frame generation. Up to 4K resolution.',
+    category: 'image-to-video', // Also supports text-to-video and start-end-frame
+    duration: [5, 10],
+    resolutions: ['1280x720', '720x1280', '1024x1024', '1920x1080', '1080x1920', '2048x1080', '3840x2160'],
+    supportsAudio: true,
+    supportsFps: true,
+    supportsStyle: false,
+    supportsMovementAmplitude: false,
+    maxPromptLength: 512,
+    priceUsd: 0.2,
+  },
+  'viduq1-text': {
+    displayName: 'Vidu Q1 Text-to-Video',
+    description: 'High-quality text-to-video model with 1080P output. Supports general and anime styles with smooth transitions.',
+    category: 'text-to-video',
+    duration: [5],
+    resolutions: ['1920x1080'],
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    supportsAudio: false,
+    supportsFps: false,
+    supportsStyle: true,
+    supportsMovementAmplitude: true,
+    maxPromptLength: 512,
+    priceUsd: 0.4,
+  },
+  'viduq1-image': {
+    displayName: 'Vidu Q1 Image-to-Video',
+    description: 'High-quality image-to-video model with 1080P output. Exceptional clarity and smooth frame transitions.',
+    category: 'image-to-video',
+    duration: [5],
+    resolutions: ['1920x1080'],
+    supportsAudio: false,
+    supportsFps: false,
+    supportsStyle: false,
+    supportsMovementAmplitude: true,
+    maxPromptLength: 512,
+    priceUsd: 0.4,
+  },
+  'viduq1-start-end': {
+    displayName: 'Vidu Q1 Start-End Frame',
+    description: 'Generate videos from start and end frame images with 1080P output. Industry-leading transition smoothness.',
+    category: 'start-end-frame',
+    duration: [5],
+    resolutions: ['1920x1080'],
+    supportsAudio: false,
+    supportsFps: false,
+    supportsStyle: false,
+    supportsMovementAmplitude: true,
+    maxPromptLength: 512,
+    priceUsd: 0.4,
+  },
+  'vidu2-image': {
+    displayName: 'Vidu 2 Image-to-Video',
+    description: 'Fast and cost-effective image-to-video model with 720P output. Stable and controllable visuals ideal for e-commerce.',
+    category: 'image-to-video',
+    duration: [4],
+    resolutions: ['1280x720'],
+    supportsAudio: true,
+    supportsFps: false,
+    supportsStyle: false,
+    supportsMovementAmplitude: true,
+    maxPromptLength: 512,
+    priceUsd: 0.2,
+  },
+  'vidu2-start-end': {
+    displayName: 'Vidu 2 Start-End Frame',
+    description: 'Cost-effective start-end frame generation with 720P output. Enhanced semantic understanding between keyframes.',
+    category: 'start-end-frame',
+    duration: [4],
+    resolutions: ['1280x720'],
+    supportsAudio: true,
+    supportsFps: false,
+    supportsStyle: false,
+    supportsMovementAmplitude: true,
+    maxPromptLength: 512,
+    priceUsd: 0.2,
+  },
+  'vidu2-reference': {
+    displayName: 'Vidu 2 Reference',
+    description: 'Generate videos using 1-3 reference images with 720P output. Enhanced consistency with multiple reference images.',
+    category: 'reference',
+    duration: [4],
+    resolutions: ['1280x720'],
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    supportsAudio: true,
+    supportsFps: false,
+    supportsStyle: false,
+    supportsMovementAmplitude: true,
+    maxPromptLength: 512,
+    priceUsd: 0.4,
+  },
+};

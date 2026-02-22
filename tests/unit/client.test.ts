@@ -257,9 +257,192 @@ describe('createZaiClient', () => {
       });
       const client = createZaiClient({ apiKey: 'test-key', maxRetries: 0, timeout: 5 });
 
+await expect(
+client.generateImage({ model: 'glm-image', prompt: 'test' })
+).rejects.toThrow();
+});
+  });
+
+  describe('generateVideo', () => {
+    it('should successfully generate a video with CogVideoX-3', async () => {
+      const mockResponse = {
+        model: 'cogvideox-3',
+        id: 'video-task-123',
+        request_id: 'req-456',
+        task_status: 'PROCESSING',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+});
+
+      const client = createZaiClient({ apiKey: 'test-key' });
+      const result = await client.generateVideo({
+        model: 'cogvideox-3',
+        prompt: 'A cat playing with a ball',
+        quality: 'quality',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.z.ai/api/paas/v4/videos/generations',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-key',
+          }),
+        })
+      );
+    });
+
+    it('should generate video with Vidu Q1 text-to-video', async () => {
+      const mockResponse = {
+        model: 'viduq1-text',
+        id: 'task-123',
+        request_id: 'req-456',
+        task_status: 'PROCESSING',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const client = createZaiClient({ apiKey: 'test-key' });
+      const result = await client.generateVideo({
+        model: 'viduq1-text',
+        prompt: 'A sunset over the ocean',
+        style: 'anime',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(result.model).toBe('viduq1-text');
+    });
+
+    it('should generate video with image-to-video model', async () => {
+      const mockResponse = {
+        model: 'viduq1-image',
+        id: 'task-123',
+        request_id: 'req-456',
+        task_status: 'PROCESSING',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const client = createZaiClient({ apiKey: 'test-key' });
+      const result = await client.generateVideo({
+        model: 'viduq1-image',
+        image_url: 'https://example.com/image.jpg',
+        prompt: 'Animate this image',
+      });
+
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should generate video with start-end frame model', async () => {
+      const mockResponse = {
+        model: 'vidu2-start-end',
+        id: 'task-123',
+        request_id: 'req-456',
+        task_status: 'PROCESSING',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const client = createZaiClient({ apiKey: 'test-key' });
+      const result = await client.generateVideo({
+        model: 'vidu2-start-end',
+        image_url: ['https://example.com/frame1.jpg', 'https://example.com/frame2.jpg'],
+        prompt: 'Smooth transition',
+      });
+
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should throw ZaiValidationError on 400', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({ message: 'Invalid video parameters' }),
+      });
+
+      const client = createZaiClient({ apiKey: 'test-key', maxRetries: 0 });
+
       await expect(
-        client.generateImage({ model: 'glm-image', prompt: 'test' })
-      ).rejects.toThrow();
+        client.generateVideo({ model: 'cogvideox-3', prompt: 'test' })
+      ).rejects.toThrow(ZaiValidationError);
+    });
+  });
+
+  describe('getVideoResult', () => {
+    it('should retrieve video result with SUCCESS status', async () => {
+      const mockResponse = {
+        model: 'cogvideox-3',
+        task_status: 'SUCCESS',
+        video_result: [{ url: 'https://example.com/video.mp4' }],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const client = createZaiClient({ apiKey: 'test-key' });
+      const result = await client.getVideoResult('video-task-123');
+
+      expect(result).toEqual(mockResponse);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.z.ai/api/paas/v4/async-result/video-task-123',
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should retrieve video result with PROCESSING status', async () => {
+      const mockResponse = {
+        task_status: 'PROCESSING',
+        request_id: 'req-456',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const client = createZaiClient({ apiKey: 'test-key' });
+      const result = await client.getVideoResult('video-task-123');
+
+      expect(result.task_status).toBe('PROCESSING');
+    });
+
+    it('should retrieve video result with FAIL status', async () => {
+      const mockResponse = {
+        task_status: 'FAIL',
+        error: {
+          code: 500,
+          message: 'Video generation failed',
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const client = createZaiClient({ apiKey: 'test-key' });
+      const result = await client.getVideoResult('video-task-123');
+
+      expect(result.task_status).toBe('FAIL');
+      expect(result.error?.message).toBe('Video generation failed');
     });
   });
 });

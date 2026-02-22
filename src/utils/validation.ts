@@ -163,3 +163,166 @@ export function formatSizeError(size: string, model: SupportedModel): string {
     `divisible by ${MODEL_CONFIGS[model].sizeDivisor}.`
   );
 }
+
+// ============================================
+// Video Validation Functions
+// ============================================
+
+import { VIDEO_MODEL_CONFIGS, type VideoSupportedModel } from '../config.js';
+
+/**
+ * Validate video prompt.
+ * @throws ZaiValidationError if prompt is invalid
+ */
+export function validateVideoPrompt(prompt: string, model: VideoSupportedModel): void {
+  if (!prompt || prompt.trim().length === 0) {
+    throw new ZaiValidationError('Video prompt cannot be empty.');
+  }
+  const config = VIDEO_MODEL_CONFIGS[model];
+  if (prompt.length > config.maxPromptLength) {
+    throw new ZaiValidationError(
+      `Video prompt is too long. Maximum ${config.maxPromptLength} characters, got ${prompt.length}.`
+    );
+  }
+}
+
+/**
+ * Validate video resolution for a specific model.
+ * @throws ZaiValidationError if resolution is invalid
+ */
+export function validateVideoResolution(resolution: string, model: VideoSupportedModel): void {
+  const config = VIDEO_MODEL_CONFIGS[model];
+  if (!config.resolutions.includes(resolution)) {
+    throw new ZaiValidationError(
+      `Invalid resolution "${resolution}" for ${model}. ` +
+      `Supported resolutions: ${config.resolutions.join(', ')}`
+    );
+  }
+}
+
+/**
+ * Validate video duration for a specific model.
+ * @throws ZaiValidationError if duration is invalid
+ */
+export function validateVideoDuration(duration: number, model: VideoSupportedModel): void {
+  const config = VIDEO_MODEL_CONFIGS[model];
+  if (!config.duration.includes(duration)) {
+    throw new ZaiValidationError(
+      `Invalid duration ${duration}s for ${model}. ` +
+      `Supported durations: ${config.duration.join(', ')} seconds`
+    );
+  }
+}
+
+/**
+ * Validate video aspect ratio for models that support it.
+ * @throws ZaiValidationError if aspect ratio is invalid
+ */
+export function validateVideoAspectRatio(aspectRatio: string, model: VideoSupportedModel): void {
+  const config = VIDEO_MODEL_CONFIGS[model];
+  if (!config.aspectRatios) {
+    throw new ZaiValidationError(
+      `Model ${model} does not support aspect_ratio parameter.`
+    );
+  }
+  if (!config.aspectRatios.includes(aspectRatio)) {
+    throw new ZaiValidationError(
+      `Invalid aspect ratio "${aspectRatio}" for ${model}. ` +
+      `Supported aspect ratios: ${config.aspectRatios.join(', ')}`
+    );
+  }
+}
+
+/**
+ * Validate movement amplitude for models that support it.
+ * @throws ZaiValidationError if movement amplitude is invalid
+ */
+export function validateMovementAmplitude(amplitude: string): void {
+  const validValues = ['auto', 'small', 'medium', 'large'];
+  if (!validValues.includes(amplitude)) {
+    throw new ZaiValidationError(
+      `Invalid movement amplitude "${amplitude}". ` +
+      `Supported values: ${validValues.join(', ')}`
+    );
+  }
+}
+
+/**
+ * Validate style for models that support it.
+ * @throws ZaiValidationError if style is invalid
+ */
+export function validateVideoStyle(style: string): void {
+  const validValues = ['general', 'anime'];
+  if (!validValues.includes(style)) {
+    throw new ZaiValidationError(
+      `Invalid style "${style}". Supported values: ${validValues.join(', ')}`
+    );
+  }
+}
+
+/**
+ * Validate image URL(s) for video generation.
+ * @throws ZaiValidationError if image URL is invalid
+ */
+export function validateVideoImageUrl(imageUrl: string | string[], model: VideoSupportedModel): void {
+  if (model === 'cogvideox-3') {
+    // CogVideoX-3 supports single image or array of 2 for start-end frame
+    if (Array.isArray(imageUrl)) {
+      if (imageUrl.length < 1 || imageUrl.length > 2) {
+        throw new ZaiValidationError(
+          `CogVideoX-3 requires 1 or 2 images. Got ${imageUrl.length}.`
+        );
+      }
+    }
+  } else if (model === 'viduq1-image' || model === 'vidu2-image') {
+    // Single image only
+    if (Array.isArray(imageUrl)) {
+      throw new ZaiValidationError(
+        `Model ${model} requires a single image URL, not an array.`
+      );
+    }
+  } else if (model === 'viduq1-start-end' || model === 'vidu2-start-end') {
+    // Exactly 2 images required
+    if (!Array.isArray(imageUrl) || imageUrl.length !== 2) {
+      throw new ZaiValidationError(
+        `Model ${model} requires exactly 2 images [first_frame, last_frame].`
+      );
+    }
+  } else if (model === 'vidu2-reference') {
+    // 1-3 images
+    if (!Array.isArray(imageUrl) || imageUrl.length < 1 || imageUrl.length > 3) {
+      throw new ZaiValidationError(
+        `Model vidu2-reference requires 1-3 reference images. Got ${Array.isArray(imageUrl) ? imageUrl.length : 1}.`
+      );
+    }
+  } else {
+    throw new ZaiValidationError(
+      `Model ${model} does not support image_url parameter.`
+    );
+  }
+}
+
+/**
+ * Validate FPS for models that support it.
+ * @throws ZaiValidationError if FPS is invalid
+ */
+export function validateVideoFps(fps: number): void {
+  if (fps !== 30 && fps !== 60) {
+    throw new ZaiValidationError(
+      `Invalid FPS ${fps}. Supported values: 30, 60`
+    );
+  }
+}
+
+/**
+ * Validate quality for CogVideoX-3.
+ * @throws ZaiValidationError if quality is invalid
+ */
+export function validateVideoQuality(quality: string): void {
+  const validValues = ['quality', 'speed'];
+  if (!validValues.includes(quality)) {
+    throw new ZaiValidationError(
+      `Invalid quality "${quality}". Supported values: ${validValues.join(', ')}`
+    );
+  }
+}

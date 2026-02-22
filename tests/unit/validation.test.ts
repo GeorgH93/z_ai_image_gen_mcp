@@ -34,6 +34,15 @@ import {
   getRecommendedSizes,
   isRecommendedSize,
   formatSizeError,
+  validateVideoPrompt,
+  validateVideoResolution,
+  validateVideoDuration,
+  validateVideoAspectRatio,
+  validateMovementAmplitude,
+  validateVideoStyle,
+  validateVideoImageUrl,
+  validateVideoFps,
+  validateVideoQuality,
 } from '../../src/utils/validation.js';
 import { ZaiValidationError } from '../../src/client/errors.js';
 
@@ -186,10 +195,213 @@ describe('isRecommendedSize', () => {
 });
 
 describe('formatSizeError', () => {
-  it('should include model name and recommendations', () => {
-    const error = formatSizeError('999x999', 'glm-image');
-    expect(error).toContain('glm-image');
-    expect(error).toContain('1280x1280');
-    expect(error).toContain('Recommended');
+it('should include model name and recommendations', () => {
+const error = formatSizeError('999x999', 'glm-image');
+expect(error).toContain('glm-image');
+expect(error).toContain('1280x1280');
+expect(error).toContain('Recommended');
+});
+});
+
+// ============================================
+// Video Validation Tests
+// ============================================
+
+describe('validateVideoPrompt', () => {
+  it('should accept valid video prompts', () => {
+    expect(() => validateVideoPrompt('A cat playing with a ball', 'cogvideox-3')).not.toThrow();
+    expect(() => validateVideoPrompt('a'.repeat(512), 'viduq1-text')).not.toThrow();
+  });
+
+  it('should reject empty video prompts', () => {
+    expect(() => validateVideoPrompt('', 'cogvideox-3')).toThrow(ZaiValidationError);
+    expect(() => validateVideoPrompt('   ', 'viduq1-text')).toThrow(ZaiValidationError);
+  });
+
+  it('should reject prompts exceeding max length', () => {
+    expect(() => validateVideoPrompt('a'.repeat(513), 'cogvideox-3')).toThrow(ZaiValidationError);
+    expect(() => validateVideoPrompt('a'.repeat(513), 'vidu2-image')).toThrow(ZaiValidationError);
+  });
+});
+
+describe('validateVideoResolution', () => {
+  it('should accept valid resolutions for CogVideoX-3', () => {
+    expect(() => validateVideoResolution('1920x1080', 'cogvideox-3')).not.toThrow();
+    expect(() => validateVideoResolution('1280x720', 'cogvideox-3')).not.toThrow();
+    expect(() => validateVideoResolution('3840x2160', 'cogvideox-3')).not.toThrow();
+  });
+
+  it('should accept valid resolutions for Vidu Q1', () => {
+    expect(() => validateVideoResolution('1920x1080', 'viduq1-text')).not.toThrow();
+    expect(() => validateVideoResolution('1920x1080', 'viduq1-image')).not.toThrow();
+  });
+
+  it('should accept valid resolutions for Vidu 2', () => {
+    expect(() => validateVideoResolution('1280x720', 'vidu2-image')).not.toThrow();
+    expect(() => validateVideoResolution('1280x720', 'vidu2-reference')).not.toThrow();
+  });
+
+  it('should reject invalid resolutions', () => {
+    expect(() => validateVideoResolution('999x999', 'cogvideox-3')).toThrow(ZaiValidationError);
+    expect(() => validateVideoResolution('720p', 'vidu2-image')).toThrow(ZaiValidationError);
+  });
+});
+
+describe('validateVideoDuration', () => {
+  it('should accept valid durations for CogVideoX-3', () => {
+    expect(() => validateVideoDuration(5, 'cogvideox-3')).not.toThrow();
+    expect(() => validateVideoDuration(10, 'cogvideox-3')).not.toThrow();
+  });
+
+  it('should accept valid durations for Vidu Q1', () => {
+    expect(() => validateVideoDuration(5, 'viduq1-text')).not.toThrow();
+    expect(() => validateVideoDuration(5, 'viduq1-image')).not.toThrow();
+  });
+
+  it('should accept valid durations for Vidu 2', () => {
+    expect(() => validateVideoDuration(4, 'vidu2-image')).not.toThrow();
+    expect(() => validateVideoDuration(4, 'vidu2-start-end')).not.toThrow();
+  });
+
+  it('should reject invalid durations', () => {
+    expect(() => validateVideoDuration(15, 'cogvideox-3')).toThrow(ZaiValidationError);
+    expect(() => validateVideoDuration(4, 'viduq1-text')).toThrow(ZaiValidationError);
+    expect(() => validateVideoDuration(5, 'vidu2-image')).toThrow(ZaiValidationError);
+  });
+});
+
+describe('validateVideoAspectRatio', () => {
+  it('should accept valid aspect ratios for Vidu Q1 text', () => {
+    expect(() => validateVideoAspectRatio('16:9', 'viduq1-text')).not.toThrow();
+    expect(() => validateVideoAspectRatio('9:16', 'viduq1-text')).not.toThrow();
+    expect(() => validateVideoAspectRatio('1:1', 'viduq1-text')).not.toThrow();
+  });
+
+  it('should reject invalid aspect ratios', () => {
+    expect(() => validateVideoAspectRatio('4:3', 'viduq1-text')).toThrow(ZaiValidationError);
+    expect(() => validateVideoAspectRatio('21:9', 'viduq1-text')).toThrow(ZaiValidationError);
+  });
+
+  it('should reject aspect ratio for models that do not support it', () => {
+    expect(() => validateVideoAspectRatio('16:9', 'cogvideox-3')).toThrow(ZaiValidationError);
+    expect(() => validateVideoAspectRatio('16:9', 'viduq1-image')).toThrow(ZaiValidationError);
+  });
+});
+
+describe('validateMovementAmplitude', () => {
+  it('should accept valid movement amplitudes', () => {
+    expect(() => validateMovementAmplitude('auto')).not.toThrow();
+    expect(() => validateMovementAmplitude('small')).not.toThrow();
+    expect(() => validateMovementAmplitude('medium')).not.toThrow();
+    expect(() => validateMovementAmplitude('large')).not.toThrow();
+  });
+
+  it('should reject invalid movement amplitudes', () => {
+    expect(() => validateMovementAmplitude('tiny')).toThrow(ZaiValidationError);
+    expect(() => validateMovementAmplitude('huge')).toThrow(ZaiValidationError);
+    expect(() => validateMovementAmplitude('fast')).toThrow(ZaiValidationError);
+  });
+});
+
+describe('validateVideoStyle', () => {
+  it('should accept valid styles', () => {
+    expect(() => validateVideoStyle('general')).not.toThrow();
+    expect(() => validateVideoStyle('anime')).not.toThrow();
+  });
+
+  it('should reject invalid styles', () => {
+    expect(() => validateVideoStyle('realistic')).toThrow(ZaiValidationError);
+    expect(() => validateVideoStyle('cartoon')).toThrow(ZaiValidationError);
+  });
+});
+
+describe('validateVideoImageUrl', () => {
+  describe('CogVideoX-3', () => {
+    it('should accept single image URL', () => {
+      expect(() => validateVideoImageUrl('https://example.com/image.jpg', 'cogvideox-3')).not.toThrow();
+    });
+
+    it('should accept array of 1-2 image URLs', () => {
+      expect(() => validateVideoImageUrl(['https://example.com/img1.jpg'], 'cogvideox-3')).not.toThrow();
+      expect(() => validateVideoImageUrl(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'cogvideox-3')).not.toThrow();
+    });
+
+    it('should reject more than 2 images', () => {
+      expect(() => validateVideoImageUrl(['img1.jpg', 'img2.jpg', 'img3.jpg'], 'cogvideox-3')).toThrow(ZaiValidationError);
+    });
+  });
+
+  describe('Vidu Q1 image', () => {
+    it('should accept single image URL', () => {
+      expect(() => validateVideoImageUrl('https://example.com/image.jpg', 'viduq1-image')).not.toThrow();
+    });
+
+    it('should reject array of URLs', () => {
+      expect(() => validateVideoImageUrl(['https://example.com/img1.jpg'], 'viduq1-image')).toThrow(ZaiValidationError);
+    });
+  });
+
+  describe('Vidu start-end frame', () => {
+    it('should accept exactly 2 images', () => {
+      expect(() => validateVideoImageUrl(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'viduq1-start-end')).not.toThrow();
+      expect(() => validateVideoImageUrl(['https://example.com/img1.jpg', 'https://example.com/img2.jpg'], 'vidu2-start-end')).not.toThrow();
+    });
+
+    it('should reject single image', () => {
+      expect(() => validateVideoImageUrl('https://example.com/image.jpg', 'viduq1-start-end')).toThrow(ZaiValidationError);
+    });
+
+    it('should reject wrong number of images', () => {
+      expect(() => validateVideoImageUrl(['img1.jpg'], 'viduq1-start-end')).toThrow(ZaiValidationError);
+      expect(() => validateVideoImageUrl(['img1.jpg', 'img2.jpg', 'img3.jpg'], 'vidu2-start-end')).toThrow(ZaiValidationError);
+    });
+  });
+
+  describe('Vidu 2 reference', () => {
+    it('should accept 1-3 reference images', () => {
+      expect(() => validateVideoImageUrl(['https://example.com/img1.jpg'], 'vidu2-reference')).not.toThrow();
+      expect(() => validateVideoImageUrl(['img1.jpg', 'img2.jpg'], 'vidu2-reference')).not.toThrow();
+      expect(() => validateVideoImageUrl(['img1.jpg', 'img2.jpg', 'img3.jpg'], 'vidu2-reference')).not.toThrow();
+    });
+
+    it('should reject more than 3 images', () => {
+      expect(() => validateVideoImageUrl(['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg'], 'vidu2-reference')).toThrow(ZaiValidationError);
+    });
+
+    it('should reject single URL string', () => {
+      expect(() => validateVideoImageUrl('https://example.com/image.jpg', 'vidu2-reference')).toThrow(ZaiValidationError);
+    });
+  });
+
+  describe('Text-to-video models', () => {
+    it('should reject image URLs for text-only models', () => {
+      expect(() => validateVideoImageUrl('https://example.com/image.jpg', 'viduq1-text')).toThrow(ZaiValidationError);
+    });
+  });
+});
+
+describe('validateVideoFps', () => {
+  it('should accept valid FPS values', () => {
+    expect(() => validateVideoFps(30)).not.toThrow();
+    expect(() => validateVideoFps(60)).not.toThrow();
+  });
+
+  it('should reject invalid FPS values', () => {
+    expect(() => validateVideoFps(24)).toThrow(ZaiValidationError);
+    expect(() => validateVideoFps(25)).toThrow(ZaiValidationError);
+    expect(() => validateVideoFps(120)).toThrow(ZaiValidationError);
+  });
+});
+
+describe('validateVideoQuality', () => {
+  it('should accept valid quality values', () => {
+    expect(() => validateVideoQuality('quality')).not.toThrow();
+    expect(() => validateVideoQuality('speed')).not.toThrow();
+  });
+
+  it('should reject invalid quality values', () => {
+    expect(() => validateVideoQuality('hd')).toThrow(ZaiValidationError);
+    expect(() => validateVideoQuality('standard')).toThrow(ZaiValidationError);
+    expect(() => validateVideoQuality('fast')).toThrow(ZaiValidationError);
   });
 });

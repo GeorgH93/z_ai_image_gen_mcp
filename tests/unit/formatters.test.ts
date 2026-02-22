@@ -32,11 +32,17 @@ import {
   formatModelList,
   formatError,
   createStructuredResult,
+  formatVideoStartResponse,
+  formatVideoResultResponse,
+  formatVideoModelList,
+  formatVideoDownloadResponse,
 } from '../../src/utils/formatters.js';
 import type {
   ImageGenerationResponse,
   AsyncResponse,
   AsyncImageGenerationResponse,
+  VideoResponse,
+  AsyncVideoGenerationResponse,
 } from '../../src/client/types.js';
 import { ZaiValidationError, ZaiRateLimitError } from '../../src/client/errors.js';
 
@@ -226,5 +232,143 @@ describe('createStructuredResult', () => {
     const result = createStructuredResult(true);
 
     expect(result).toEqual({ success: true });
+  });
+});
+
+// ============================================
+// Video Formatter Tests
+// ============================================
+
+describe('formatVideoStartResponse', () => {
+  it('should format video start response', () => {
+    const response: VideoResponse = {
+      model: 'cogvideox-3',
+      id: 'video-task-123',
+      request_id: 'req-456',
+      task_status: 'PROCESSING',
+    };
+
+    const result = formatVideoStartResponse(response);
+
+    expect(result).toContain('# Video Generation Started');
+    expect(result).toContain('video-task-123');
+    expect(result).toContain('cogvideox-3');
+    expect(result).toContain('PROCESSING');
+    expect(result).toContain('get_video_result');
+  });
+
+  it('should include video generation time warning', () => {
+    const response: VideoResponse = {
+      model: 'viduq1-text',
+      id: 'task-123',
+      request_id: 'req-456',
+      task_status: 'PROCESSING',
+    };
+
+    const result = formatVideoStartResponse(response);
+
+    expect(result).toContain('30 seconds');
+  });
+});
+
+describe('formatVideoResultResponse', () => {
+  it('should format processing status', () => {
+    const response: AsyncVideoGenerationResponse = {
+      task_status: 'PROCESSING',
+      request_id: 'req-456',
+    };
+
+    const result = formatVideoResultResponse(response);
+
+    expect(result).toContain('# Video Task Still Processing');
+    expect(result).toContain('PROCESSING');
+  });
+
+  it('should format success status with video', () => {
+    const response: AsyncVideoGenerationResponse = {
+      task_status: 'SUCCESS',
+      model: 'cogvideox-3',
+      video_result: [{ url: 'https://example.com/video.mp4' }],
+    };
+
+    const result = formatVideoResultResponse(response);
+
+    expect(result).toContain('# Video Generation Complete');
+    expect(result).toContain('SUCCESS');
+    expect(result).toContain('https://example.com/video.mp4');
+  });
+
+  it('should format failed status with error', () => {
+    const response: AsyncVideoGenerationResponse = {
+      task_status: 'FAIL',
+      error: {
+        code: 400,
+        message: 'Invalid video parameters',
+      },
+    };
+
+    const result = formatVideoResultResponse(response);
+
+    expect(result).toContain('# Video Generation Failed');
+    expect(result).toContain('FAIL');
+    expect(result).toContain('Invalid video parameters');
+  });
+
+  it('should warn about 1-day URL expiration', () => {
+    const response: AsyncVideoGenerationResponse = {
+      task_status: 'SUCCESS',
+      video_result: [{ url: 'https://example.com/video.mp4' }],
+    };
+
+    const result = formatVideoResultResponse(response);
+
+    expect(result).toContain('1 day');
+  });
+});
+
+describe('formatVideoModelList', () => {
+  it('should list all available video models', () => {
+    const result = formatVideoModelList();
+
+    expect(result).toContain('# Available Video Generation Models');
+    expect(result).toContain('CogVideoX-3');
+    expect(result).toContain('Vidu Q1');
+    expect(result).toContain('Vidu 2');
+  });
+
+  it('should include model IDs', () => {
+    const result = formatVideoModelList();
+
+    expect(result).toContain('cogvideox-3');
+    expect(result).toContain('viduq1-text');
+    expect(result).toContain('viduq1-image');
+    expect(result).toContain('vidu2-image');
+    expect(result).toContain('vidu2-reference');
+  });
+
+  it('should include model capabilities', () => {
+    const result = formatVideoModelList();
+
+    expect(result).toContain('Category');
+    expect(result).toContain('Duration');
+    expect(result).toContain('Resolutions');
+    expect(result).toContain('Price');
+  });
+});
+
+describe('formatVideoDownloadResponse', () => {
+  it('should format file download response', () => {
+    const result = formatVideoDownloadResponse('/tmp/video_123.mp4', 'file');
+
+    expect(result).toContain('# Video Downloaded Successfully');
+    expect(result).toContain('/tmp/video_123.mp4');
+    expect(result).toContain('file://');
+  });
+
+  it('should format base64 download response', () => {
+    const result = formatVideoDownloadResponse('', 'base64');
+
+    expect(result).toContain('# Video Downloaded Successfully');
+    expect(result).toContain('base64');
   });
 });

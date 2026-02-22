@@ -133,8 +133,12 @@ export interface ZaiClient {
   generateImage(request: CreateImageRequest): Promise<ImageGenerationResponse>;
   /** Generate image asynchronously */
   generateImageAsync(request: AsyncCreateImageRequest): Promise<AsyncResponse>;
-  /** Get async task result */
+  /** Get async image task result */
   getAsyncResult(taskId: string): Promise<AsyncImageGenerationResponse>;
+  /** Generate video asynchronously */
+  generateVideo(request: CreateVideoRequest): Promise<VideoResponse>;
+  /** Get async video task result */
+  getVideoResult(taskId: string): Promise<AsyncVideoGenerationResponse>;
 }
 
 export interface ClientOptions {
@@ -148,4 +152,198 @@ export interface ClientOptions {
   maxRetries?: number;
   /** Initial retry delay in ms */
   retryDelay?: number;
+}
+
+// ============================================
+// Video Generation Request Types
+// ============================================
+
+/** Video generation model codes */
+export type VideoModel =
+  | 'cogvideox-3'
+  | 'viduq1-text'
+  | 'viduq1-image'
+  | 'viduq1-start-end'
+  | 'vidu2-image'
+  | 'vidu2-start-end'
+  | 'vidu2-reference';
+
+/** Base interface for all video generation requests */
+export interface BaseVideoRequest {
+  /** Unique end user ID (6-128 characters) */
+  user_id?: string;
+  /** Client-provided unique request identifier */
+  request_id?: string;
+}
+
+/** CogVideoX-3 video generation request */
+export interface CogVideoX3Request extends BaseVideoRequest {
+  /** Model code */
+  model: 'cogvideox-3';
+  /** Text description of the video (max 512 characters) */
+  prompt?: string;
+  /** Output mode: quality (higher quality) or speed (faster) */
+  quality?: 'quality' | 'speed';
+  /** Whether to generate AI sound effects */
+  with_audio?: boolean;
+  /** Image URL(s) for image-to-video or start-end frame generation */
+  image_url?: string | string[];
+  /** Video resolution */
+  size?: '1280x720' | '720x1280' | '1024x1024' | '1920x1080' | '1080x1920' | '2048x1080' | '3840x2160';
+  /** Video frame rate: 30 or 60 */
+  fps?: 30 | 60;
+  /** Video duration in seconds: 5 or 10 */
+  duration?: 5 | 10;
+}
+
+/** Vidu Q1 text-to-video request */
+export interface ViduQ1TextRequest extends BaseVideoRequest {
+  /** Model code */
+  model: 'viduq1-text';
+  /** Text description of the video (max 512 characters) */
+  prompt: string;
+  /** Style: general or anime */
+  style?: 'general' | 'anime';
+  /** Video duration in seconds (fixed at 5) */
+  duration?: 5;
+  /** Aspect ratio */
+  aspect_ratio?: '16:9' | '9:16' | '1:1';
+  /** Video resolution */
+  size?: '1920x1080';
+  /** Motion amplitude */
+  movement_amplitude?: 'auto' | 'small' | 'medium' | 'large';
+}
+
+/** Vidu Q1 image-to-video request */
+export interface ViduQ1ImageRequest extends BaseVideoRequest {
+  /** Model code */
+  model: 'viduq1-image';
+  /** Text description of the video (max 512 characters) */
+  prompt?: string;
+  /** Source image URL or base64 */
+  image_url: string;
+  /** Video duration in seconds (fixed at 5) */
+  duration?: 5;
+  /** Video resolution */
+  size?: '1920x1080';
+  /** Motion amplitude */
+  movement_amplitude?: 'auto' | 'small' | 'medium' | 'large';
+}
+
+/** Vidu Q1 start-end frame request */
+export interface ViduQ1StartEndRequest extends BaseVideoRequest {
+  /** Model code */
+  model: 'viduq1-start-end';
+  /** Text description of the video (max 512 characters) */
+  prompt?: string;
+  /** Array of two image URLs: [first_frame, last_frame] */
+  image_url: [string, string];
+  /** Video duration in seconds (fixed at 5) */
+  duration?: 5;
+  /** Video resolution */
+  size?: '1920x1080';
+  /** Motion amplitude */
+  movement_amplitude?: 'auto' | 'small' | 'medium' | 'large';
+}
+
+/** Vidu 2 image-to-video request */
+export interface Vidu2ImageRequest extends BaseVideoRequest {
+  /** Model code */
+  model: 'vidu2-image';
+  /** Text description of the video (max 512 characters) */
+  prompt?: string;
+  /** Source image URL or base64 */
+  image_url: string;
+  /** Video duration in seconds (fixed at 4) */
+  duration?: 4;
+  /** Video resolution */
+  size?: '1280x720';
+  /** Motion amplitude */
+  movement_amplitude?: 'auto' | 'small' | 'medium' | 'large';
+  /** Whether to add background music */
+  with_audio?: boolean;
+}
+
+/** Vidu 2 start-end frame request */
+export interface Vidu2StartEndRequest extends BaseVideoRequest {
+  /** Model code */
+  model: 'vidu2-start-end';
+  /** Text description of the video (max 512 characters) */
+  prompt?: string;
+  /** Array of two image URLs: [first_frame, last_frame] */
+  image_url: [string, string];
+  /** Video duration in seconds (fixed at 4) */
+  duration?: 4;
+  /** Video resolution */
+  size?: '1280x720';
+  /** Motion amplitude */
+  movement_amplitude?: 'auto' | 'small' | 'medium' | 'large';
+  /** Whether to add background music */
+  with_audio?: boolean;
+}
+
+/** Vidu 2 reference-based video request */
+export interface Vidu2ReferenceRequest extends BaseVideoRequest {
+  /** Model code */
+  model: 'vidu2-reference';
+  /** Text description of the video (max 512 characters) */
+  prompt?: string;
+  /** Array of 1-3 reference image URLs */
+  image_url: string[];
+  /** Video duration in seconds (fixed at 4) */
+  duration?: 4;
+  /** Aspect ratio */
+  aspect_ratio?: '16:9' | '9:16' | '1:1';
+  /** Video resolution */
+  size?: '1280x720';
+  /** Motion amplitude */
+  movement_amplitude?: 'auto' | 'small' | 'medium' | 'large';
+  /** Whether to add background music */
+  with_audio?: boolean;
+}
+
+/** Union type for all video generation requests */
+export type CreateVideoRequest =
+  | CogVideoX3Request
+  | ViduQ1TextRequest
+  | ViduQ1ImageRequest
+  | ViduQ1StartEndRequest
+  | Vidu2ImageRequest
+  | Vidu2StartEndRequest
+  | Vidu2ReferenceRequest;
+
+// ============================================
+// Video Generation Response Types
+// ============================================
+
+/** Video generation async response (returned immediately after request) */
+export interface VideoResponse {
+  /** Model name used in this call */
+  model: string;
+  /** Task order number (use to query result) */
+  id: string;
+  /** Task number from client or generated by platform */
+  request_id: string;
+  /** Processing status */
+  task_status: 'PROCESSING' | 'SUCCESS' | 'FAIL';
+}
+
+/** Video data in async result */
+export interface VideoData {
+  /** Video URL */
+  url: string;
+}
+
+/** Async video generation result (retrieved via task ID) */
+export interface AsyncVideoGenerationResponse {
+  /** Model name */
+  model?: string;
+  /** Processing status */
+  task_status: 'PROCESSING' | 'SUCCESS' | 'FAIL';
+  /** Task number */
+  request_id?: string;
+  /** Video generation results */
+  video_result?: VideoData[];
+  /** Error information if failed */
+  error?: ApiError;
 }

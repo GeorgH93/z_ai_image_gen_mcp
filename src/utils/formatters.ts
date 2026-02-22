@@ -27,9 +27,11 @@
 import type {
   AsyncImageGenerationResponse,
   AsyncResponse,
+  AsyncVideoGenerationResponse,
   ImageGenerationResponse,
+  VideoResponse,
 } from '../client/types.js';
-import { MODEL_CONFIGS, type SupportedModel } from '../config.js';
+import { MODEL_CONFIGS, VIDEO_MODEL_CONFIGS, type SupportedModel } from '../config.js';
 
 /**
  * Format a synchronous image generation response for MCP output.
@@ -220,4 +222,135 @@ export function createStructuredResult(
     result.error = error;
   }
   return result;
+}
+
+// ============================================
+// Video Formatters
+// ============================================
+
+/**
+ * Format a video generation start response for MCP output.
+ */
+export function formatVideoStartResponse(response: VideoResponse): string {
+  const lines: string[] = [];
+
+  lines.push(`# Video Generation Started`);
+  lines.push(``);
+  lines.push(`**Task ID:** ${response.id}`);
+  lines.push(`**Model:** ${response.model}`);
+  lines.push(`**Status:** ${response.task_status}`);
+  lines.push(`**Request ID:** ${response.request_id}`);
+  lines.push(``);
+  lines.push(`Use the \`get_video_result\` tool with task ID \`${response.id}\` to check the result.`);
+  lines.push(``);
+  lines.push(`> **Note:** Video generation typically takes 30 seconds to several minutes depending on duration and quality settings.`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Format an async video result response for MCP output.
+ */
+export function formatVideoResultResponse(
+  response: AsyncVideoGenerationResponse
+): string {
+  const lines: string[] = [];
+
+  const status = response.task_status;
+
+  if (status === 'PROCESSING') {
+    lines.push(`# Video Task Still Processing`);
+    lines.push(``);
+    lines.push(`The video generation task is still in progress.`);
+    lines.push(`Please try again in a few seconds.`);
+    lines.push(``);
+    lines.push(`**Status:** ${status}`);
+    if (response.request_id) {
+      lines.push(`**Request ID:** ${response.request_id}`);
+    }
+  } else if (status === 'SUCCESS') {
+    lines.push(`# Video Generation Complete`);
+    lines.push(``);
+    lines.push(`**Status:** ${status}`);
+    if (response.model) {
+      lines.push(`**Model:** ${response.model}`);
+    }
+
+    if (response.video_result && response.video_result.length > 0) {
+      const videoData = response.video_result[0];
+      if (videoData) {
+        lines.push(`**Video URL:** ${videoData.url}`);
+        lines.push(``);
+        lines.push(`> **Note:** The video URL expires after 1 day. Download and store the video promptly.`);
+      }
+    }
+  } else if (status === 'FAIL') {
+    lines.push(`# Video Generation Failed`);
+    lines.push(``);
+    lines.push(`**Status:** ${status}`);
+    if (response.error) {
+      lines.push(`**Error Code:** ${response.error.code}`);
+      lines.push(`**Error Message:** ${response.error.message}`);
+    }
+    lines.push(``);
+    lines.push(`The video generation task failed. Please check your prompt and try again.`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Format video model list for MCP output.
+ */
+export function formatVideoModelList(): string {
+  const lines: string[] = [];
+
+  lines.push(`# Available Video Generation Models`);
+  lines.push(``);
+
+  for (const [modelId, config] of Object.entries(VIDEO_MODEL_CONFIGS)) {
+    lines.push(`## ${config.displayName}`);
+    lines.push(``);
+    lines.push(`**Model ID:** \`${modelId}\``);
+    lines.push(`**Category:** ${config.category}`);
+    lines.push(`**Description:** ${config.description}`);
+    lines.push(`**Duration:** ${config.duration.join(', ')} seconds`);
+    lines.push(`**Resolutions:** ${config.resolutions.join(', ')}`);
+    if (config.aspectRatios) {
+      lines.push(`**Aspect Ratios:** ${config.aspectRatios.join(', ')}`);
+    }
+    lines.push(`**Audio Support:** ${config.supportsAudio ? 'Yes' : 'No'}`);
+    lines.push(`**FPS Options:** ${config.supportsFps ? '30, 60' : 'N/A'}`);
+    lines.push(`**Style Options:** ${config.supportsStyle ? 'general, anime' : 'N/A'}`);
+    lines.push(`**Movement Amplitude:** ${config.supportsMovementAmplitude ? 'auto, small, medium, large' : 'N/A'}`);
+    lines.push(`**Max Prompt Length:** ${config.maxPromptLength} characters`);
+    lines.push(`**Price:** $${config.priceUsd}/video`);
+    lines.push(``);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Format a video download response for MCP output.
+ */
+export function formatVideoDownloadResponse(
+  filePath: string,
+  outputType: 'file' | 'base64'
+): string {
+  const lines: string[] = [];
+
+  if (outputType === 'file') {
+    lines.push(`# Video Downloaded Successfully`);
+    lines.push(``);
+    lines.push(`**Saved to:** file://${filePath}`);
+    lines.push(``);
+    lines.push(`> The video has been saved to disk and can be accessed at the path above.`);
+  } else {
+    lines.push(`# Video Downloaded Successfully`);
+    lines.push(``);
+    lines.push(`The video has been returned as base64 data.`);
+  }
+
+  return lines.join('\n');
 }
