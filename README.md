@@ -51,7 +51,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
   "mcpServers": {
     "z-ai-image": {
       "command": "npx",
-      "args": ["z-ai-image-mcp"],
+      "args": ["GeorgH93/z_ai_image_gen_mcp"],
       "env": {
         "ZAI_API_KEY": "your_api_key_here"
       }
@@ -65,7 +65,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 Run the server directly:
 
 ```bash
-npx z-ai-image-mcp
+npx GeorgH93/z_ai_image_gen_mcp
 ```
 
 Or programmatically:
@@ -88,7 +88,7 @@ Add to your OpenCode configuration (`opencode.json` or `opencode.jsonc` in your 
   "mcp": {
     "z-ai-image": {
       "type": "local",
-      "command": ["npx", "z-ai-image-mcp"],
+      "command": ["npx", "GeorgH93/z_ai_image_gen_mcp"],
       "enabled": true,
       "environment": {
         "ZAI_API_KEY": "your_api_key_here"
@@ -106,7 +106,7 @@ Or using an environment variable reference:
   "mcp": {
     "z-ai-image": {
       "type": "local",
-      "command": ["npx", "z-ai-image-mcp"],
+      "command": ["npx", "GeorgH93/z_ai_image_gen_mcp"],
       "enabled": true,
       "environment": {
         "ZAI_API_KEY": "{env:ZAI_API_KEY}"
@@ -138,7 +138,7 @@ To enable the MCP server only for specific agents:
   "mcp": {
     "z-ai-image": {
       "type": "local",
-      "command": ["npx", "z-ai-image-mcp"],
+      "command": ["npx", "GeorgH93/z_ai_image_gen_mcp"],
       "enabled": true,
       "environment": {
         "ZAI_API_KEY": "{env:ZAI_API_KEY}"

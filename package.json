@@ -30,7 +30,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "postinstall": "npm run build && node -e \"require('fs').chmodSync('dist/index.js', '755')\"",
+    "prepare": "test -d .git && test -f package.json && git config core.hooksPath hooks || true",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
@@ -46,7 +46,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/node": "^20.14.0",
-    "typescript": "^5.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -54,6 +53,7 @@
     "dotenv": "^16.4.5",
     "eslint": "^10.0.2",
     "tsx": "^4.22.4",
+    "typescript": "^5.4.5",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   },
