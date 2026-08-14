@@ -16,7 +16,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 ## Installation
 
 ```bash
-npm install GeorgH93/z_ai_image_gen_mcp
+npm install z-ai-image-mcp
 ```
 
 ## Configuration
@@ -51,7 +51,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
   "mcpServers": {
     "z-ai-image": {
       "command": "npx",
-      "args": ["GeorgH93/z_ai_image_gen_mcp"],
+      "args": ["z-ai-image-mcp"],
       "env": {
         "ZAI_API_KEY": "your_api_key_here"
       }
@@ -65,7 +65,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 Run the server directly:
 
 ```bash
-npx GeorgH93/z_ai_image_gen_mcp
+npx z-ai-image-mcp
 ```
 
 Or programmatically:
@@ -88,7 +88,7 @@ Add to your OpenCode configuration (`opencode.json` or `opencode.jsonc` in your 
   "mcp": {
     "z-ai-image": {
       "type": "local",
-      "command": ["npx", "GeorgH93/z_ai_image_gen_mcp"],
+      "command": ["npx", "z-ai-image-mcp"],
       "enabled": true,
       "environment": {
         "ZAI_API_KEY": "your_api_key_here"
@@ -106,7 +106,7 @@ Or using an environment variable reference:
   "mcp": {
     "z-ai-image": {
       "type": "local",
-      "command": ["npx", "GeorgH93/z_ai_image_gen_mcp"],
+      "command": ["npx", "z-ai-image-mcp"],
       "enabled": true,
       "environment": {
         "ZAI_API_KEY": "{env:ZAI_API_KEY}"
@@ -138,7 +138,7 @@ To enable the MCP server only for specific agents:
   "mcp": {
     "z-ai-image": {
       "type": "local",
-      "command": ["npx", "GeorgH93/z_ai_image_gen_mcp"],
+      "command": ["npx", "z-ai-image-mcp"],
       "enabled": true,
       "environment": {
         "ZAI_API_KEY": "{env:ZAI_API_KEY}"
@@ -420,8 +420,8 @@ The server handles various error scenarios:
 ### Setup
 
 ```bash
-git clone <repo-url>
-cd z-ai-image-mcp
+git clone https://github.com/GeorgH93/z_ai_image_gen_mcp.git
+cd z_ai_image_gen_mcp
 npm install
 cp .env.example .env
 # Edit .env with your API key

@@ -249,5 +249,4 @@ export const VIDEO_MODEL_CONFIGS = {
         priceUsd: 0.4,
     },
 };
-// trigger 1785837248
 //# sourceMappingURL=config.js.map
